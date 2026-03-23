@@ -1,7 +1,8 @@
 @echo off
 echo Installing dependencies...
 pip install -r requirements.txt
-pip install pyinstaller==6.15.0
+pip install "pefile==2023.2.7"
+pip install "pyinstaller==6.15.0"
 
 echo Building OpenAIUsageTray.exe...
 python -m PyInstaller ^
