@@ -62,6 +62,7 @@ class App:
 
         # Settings window reference
         self._settings_win: Optional[tk.Toplevel] = None
+        self._detail_win: Optional[tk.Toplevel] = None
 
         # Cross-thread dispatch queue
         self._gui_q: queue.Queue = queue.Queue()
@@ -216,7 +217,12 @@ class App:
             self.icon.title = "OpenAI Usage — error"
 
     def _make_menu(self) -> pystray.Menu:
-        items: list = []
+        items: list = [
+            pystray.MenuItem("Show Details",
+                             lambda _i, _it: self._post(self._open_detail),
+                             default=True),
+            pystray.Menu.SEPARATOR,
+        ]
 
         if self.usage and self.status in ("ok", "stale", "ratelimit"):
             today_line, month_line = build_summary_lines(self.usage)
@@ -264,6 +270,21 @@ class App:
             self._settings_win.lift()
             return
         self._settings_win = SettingsWindow(self.root, self.settings, self._on_settings_saved)
+
+    def _open_detail(self) -> None:
+        if self._detail_win and self._detail_win.winfo_exists():
+            self._detail_win.lift()
+            return
+        from popup import DetailWindow
+        self._detail_win = DetailWindow(
+            self.root,
+            self.usage,
+            self.usage.fetched_at if self.usage else None,
+            self.settings,
+            status=self.status,
+            on_refresh=self._do_refresh,
+            on_open_settings=self._open_settings,
+        )
 
     def _on_settings_saved(self, new_settings: Settings) -> None:
         self.settings = new_settings
