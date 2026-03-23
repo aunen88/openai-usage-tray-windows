@@ -27,7 +27,7 @@ from icon_renderer import render_icon
 from menu_builder import (
     build_last_updated, build_model_line, build_summary_lines, build_title,
 )
-from popup import SettingsWindow
+from popup import DetailWindow, SettingsWindow
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
@@ -275,7 +275,6 @@ class App:
         if self._detail_win and self._detail_win.winfo_exists():
             self._detail_win.lift()
             return
-        from popup import DetailWindow
         self._detail_win = DetailWindow(
             self.root,
             self.usage,

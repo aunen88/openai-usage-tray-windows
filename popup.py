@@ -18,36 +18,38 @@ def _palette() -> dict:
     light = win32_ui.is_light_theme()
     if light:
         return {
-            "BG":       "#f5f4f0",
-            "BG_CARD":  "#eceae4",
-            "BG_HOVER": "#e0deda",
-            "FG":       "#1a1a18",
-            "FG_DIM":   "#666660",
-            "FG_MUTED": "#9a9990",
-            "DIVIDER":  "#d5d3cc",
-            "ACCENT":   "#22a84a",
-            "GREEN":    "#22a84a",
-            "ORANGE":   "#d97a1a",
-            "RED":      "#c42b20",
-            "BTN_BG":   "#e4e2dc",
-            "BTN_FG":   "#1a1a18",
-            "ACRYLIC":  0xF0F0EEE8,
+            "BG":          "#f5f4f0",
+            "BG_CARD":     "#eceae4",
+            "BG_HOVER":    "#e0deda",
+            "FG":          "#1a1a18",
+            "FG_DIM":      "#666660",
+            "FG_MUTED":    "#9a9990",
+            "DIVIDER":     "#d5d3cc",
+            "ACCENT":      "#22a84a",
+            "GREEN":       "#22a84a",
+            "ORANGE":      "#d97a1a",
+            "RED":         "#c42b20",
+            "BTN_BG":      "#e4e2dc",
+            "BTN_FG":      "#1a1a18",
+            "ACRYLIC":     0xF0F0EEE8,
+            "BANNER_WARN": "#fff5e6",
         }
     return {
-        "BG":       "#161618",
-        "BG_CARD":  "#1e1e22",
-        "BG_HOVER": "#252529",
-        "FG":       "#f0efe8",
-        "FG_DIM":   "#888882",
-        "FG_MUTED": "#555550",
-        "DIVIDER":  "#2c2c30",
-        "ACCENT":   "#4ade80",
-        "GREEN":    "#4ade80",
-        "ORANGE":   "#fb923c",
-        "RED":      "#f87171",
-        "BTN_BG":   "#26262a",
-        "BTN_FG":   "#c8c7c0",
-        "ACRYLIC":  0xF0181618,
+        "BG":          "#161618",
+        "BG_CARD":     "#1e1e22",
+        "BG_HOVER":    "#252529",
+        "FG":          "#f0efe8",
+        "FG_DIM":      "#888882",
+        "FG_MUTED":    "#555550",
+        "DIVIDER":     "#2c2c30",
+        "ACCENT":      "#4ade80",
+        "GREEN":       "#4ade80",
+        "ORANGE":      "#fb923c",
+        "RED":         "#f87171",
+        "BTN_BG":      "#26262a",
+        "BTN_FG":      "#c8c7c0",
+        "ACRYLIC":     0xF0181618,
+        "BANNER_WARN": "#2a1a0a",
     }
 
 # ── Typography ────────────────────────────────────────────────────────────────
@@ -114,6 +116,7 @@ class DetailWindow(tk.Toplevel):
         on_open_settings: Callable,
     ):
         super().__init__(root)
+        self._root             = root
         self._on_refresh       = on_refresh
         self._on_open_settings = on_open_settings
         self._settings         = settings
@@ -208,7 +211,7 @@ class DetailWindow(tk.Toplevel):
                     self._model_row(wrap, m)
 
         if self._status == "ratelimit":
-            banner_bg = "#2a1a0a" if p["BG"] == "#161618" else "#fff5e6"
+            banner_bg = p["BANNER_WARN"]
             banner = tk.Frame(wrap, bg=banner_bg)
             banner.pack(fill="x", pady=(4, 0))
             tk.Frame(banner, bg=p["ORANGE"], height=1).pack(fill="x")
@@ -280,7 +283,10 @@ class DetailWindow(tk.Toplevel):
         try:
             tw = getattr(canvas, "_track_w", canvas.winfo_width())
             if tw < 2:
-                self.after(20, lambda: self._anim_bar(canvas, fill_ratio, step))
+                try:
+                    self.after(20, lambda: self._anim_bar(canvas, fill_ratio, step))
+                except tk.TclError:
+                    pass
                 return
             color = getattr(canvas, "_fill_color", p["GREEN"])
             t     = step / _BAR_STEPS
@@ -296,7 +302,6 @@ class DetailWindow(tk.Toplevel):
                    lambda: self._anim_bar(canvas, fill_ratio, step + 1))
 
     def _build_footer(self, parent: tk.Widget, last_updated) -> None:
-        from datetime import datetime as _dt
         p  = self._pal
         ts = last_updated.strftime("%H:%M:%S") if last_updated else "never"
 
@@ -387,11 +392,11 @@ class DetailWindow(tk.Toplevel):
 
     def _do_refresh(self) -> None:
         self.close()
-        self.after(_FADE_MS + 20, self._on_refresh)
+        self._root.after(_FADE_MS + 20, self._on_refresh)
 
     def _do_settings(self) -> None:
         self.close()
-        self.after(_FADE_MS + 20, self._on_open_settings)
+        self._root.after(_FADE_MS + 20, self._on_open_settings)
 
 
 # ── Settings window ───────────────────────────────────────────────────────────
