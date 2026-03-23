@@ -58,6 +58,7 @@ class App:
         # Backoff state (main-thread only after init)
         self._backoff_s: int = 60
         self._backoff_pending: bool = False
+        self._backoff_after_id: Optional[str] = None
 
         # Settings window reference
         self._settings_win: Optional[tk.Toplevel] = None
@@ -141,7 +142,9 @@ class App:
             self._post(self._apply_state, "ok", data)
         except AuthError as exc:
             log.warning("Auth error: %s", exc)
+            self._backoff_s = 300  # back off 5 min on auth errors
             self._post(self._apply_state, "error", None)
+            self._post(self._schedule_backoff)
         except RateLimitError as exc:
             self._backoff_s = (
                 min(exc.retry_after, 900) if exc.retry_after > 0
@@ -172,11 +175,20 @@ class App:
             log.debug("Backoff already scheduled — skipping duplicate")
             return
         self._backoff_pending = True
-        self.root.after(self._backoff_s * 1000, self._run_backoff)
+        self._backoff_after_id = self.root.after(self._backoff_s * 1000, self._run_backoff)
+
+    def _cancel_backoff(self) -> None:
+        """Cancel any pending backoff timer (main thread)."""
+        if self._backoff_after_id is not None:
+            self.root.after_cancel(self._backoff_after_id)
+            self._backoff_after_id = None
+        self._backoff_pending = False
 
     def _run_backoff(self) -> None:
         self._backoff_pending = False
-        threading.Thread(target=self._fetch, daemon=True).start()
+        self._backoff_after_id = None
+        if self.settings.api_key:
+            threading.Thread(target=self._fetch, daemon=True).start()
 
     # ── Icon + menu ───────────────────────────────────────────────────────────
 
@@ -244,6 +256,7 @@ class App:
 
     def _do_refresh(self) -> None:
         """Bypass _backoff_pending — spawns fetch immediately (claude_tray pattern)."""
+        self._cancel_backoff()
         threading.Thread(target=self._fetch, daemon=True).start()
 
     def _open_settings(self) -> None:
@@ -254,6 +267,8 @@ class App:
 
     def _on_settings_saved(self, new_settings: Settings) -> None:
         self.settings = new_settings
+        self._cancel_backoff()
+        self._backoff_s = 60
         if new_settings.api_key:
             self.status = "loading"
             self._refresh_icon()
