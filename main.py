@@ -147,8 +147,8 @@ class App:
             self._post(self._schedule_backoff)
         except RateLimitError as exc:
             self._backoff_s = (
-                min(exc.retry_after, 900) if exc.retry_after > 0
-                else min(self._backoff_s * 2, 900)
+                min(exc.retry_after, 3600) if exc.retry_after > 0
+                else min(self._backoff_s * 2, 3600)
             )
             log.warning("Rate limited — backing off %ds", self._backoff_s)
             self._post(self._apply_state, "ratelimit", None)
