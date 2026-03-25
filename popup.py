@@ -1,55 +1,90 @@
 """Tkinter popup windows for OpenAI Usage Tray — modern dark-glass design.
 
 DetailWindow   – borderless flyout, slides up from taskbar
-SettingsWindow – modal settings sheet, centered
+SettingsWindow – modal settings sheet, centered, draggable
 """
 from __future__ import annotations
 
+import sys
 import tkinter as tk
+from pathlib import Path
 from typing import Callable, Optional
+
+from PIL import Image as _PILImage
+from PIL import ImageTk as _ImageTk
 
 import win32_ui
 from api import UsageData
 from config import Settings, save_settings
 
+# ── Brand icon ───────────────────────────────────────────────────────────────
+
+def _brand_icon_path() -> Path:
+    """Locate chatgpt_icon.png — handles both source and PyInstaller builds."""
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        return Path(meipass) / "chatgpt_icon.png"
+    return Path(__file__).parent / "chatgpt_icon.png"
+
+
+def _load_brand_icon(size: int = 28) -> Optional[_ImageTk.PhotoImage]:
+    """Load and resize the ChatGPT brand icon. Returns None on failure."""
+    try:
+        img = _PILImage.open(_brand_icon_path())
+        img = img.resize((size, size), _PILImage.LANCZOS)
+        return _ImageTk.PhotoImage(img)
+    except Exception:
+        return None
+
 # ── Palette ───────────────────────────────────────────────────────────────────
 
 def _palette() -> dict:
+    """Return color tokens for the current Windows theme.
+
+    Dark palette inspired by "Developer Tool / IDE" color system:
+      BG deep slate, elevated cards, green (ChatGPT brand) accent,
+      green/orange/red semantic thresholds.
+    Light palette: warm neutral tones with the same accent hierarchy.
+    """
     light = win32_ui.is_light_theme()
     if light:
         return {
-            "BG":          "#f5f4f0",
-            "BG_CARD":     "#eceae4",
-            "BG_HOVER":    "#e0deda",
-            "FG":          "#1a1a18",
-            "FG_DIM":      "#666660",
-            "FG_MUTED":    "#9a9990",
-            "DIVIDER":     "#d5d3cc",
-            "ACCENT":      "#22a84a",
-            "GREEN":       "#22a84a",
-            "ORANGE":      "#d97a1a",
-            "RED":         "#c42b20",
-            "BTN_BG":      "#e4e2dc",
-            "BTN_FG":      "#1a1a18",
-            "ACRYLIC":     0xF0F0EEE8,
-            "BANNER_WARN": "#fff5e6",
+            "BG":          "#f8fafc",
+            "BG_CARD":     "#ffffff",
+            "BG_HOVER":    "#f1f5f9",
+            "FG":          "#0f172a",
+            "FG_DIM":      "#475569",
+            "FG_MUTED":    "#94a3b8",
+            "DIVIDER":     "#e2e8f0",
+            "ACCENT":      "#10a37f",
+            "GREEN":       "#16a34a",
+            "ORANGE":      "#ea580c",
+            "RED":         "#dc2626",
+            "BTN_BG":      "#f1f5f9",
+            "BTN_FG":      "#0f172a",
+            "ACRYLIC":     0xF0F8FAFC,
+            "BANNER_WARN": "#fffbeb",
+            "BAR_BG":      "#e2e8f0",
+            "CARD_BORDER": "#e2e8f0",
         }
     return {
-        "BG":          "#161618",
-        "BG_CARD":     "#1e1e22",
-        "BG_HOVER":    "#252529",
-        "FG":          "#f0efe8",
-        "FG_DIM":      "#888882",
-        "FG_MUTED":    "#555550",
-        "DIVIDER":     "#2c2c30",
-        "ACCENT":      "#4ade80",
+        "BG":          "#0f172a",
+        "BG_CARD":     "#1b2336",
+        "BG_HOVER":    "#1e293b",
+        "FG":          "#f8fafc",
+        "FG_DIM":      "#94a3b8",
+        "FG_MUTED":    "#64748b",
+        "DIVIDER":     "#1e293b",
+        "ACCENT":      "#10a37f",
         "GREEN":       "#4ade80",
         "ORANGE":      "#fb923c",
         "RED":         "#f87171",
-        "BTN_BG":      "#26262a",
-        "BTN_FG":      "#c8c7c0",
-        "ACRYLIC":     0xF0181618,
-        "BANNER_WARN": "#2a1a0a",
+        "BTN_BG":      "#1e293b",
+        "BTN_FG":      "#cbd5e1",
+        "ACRYLIC":     0xF00F172A,
+        "BANNER_WARN": "#1c1306",
+        "BAR_BG":      "#1e293b",
+        "CARD_BORDER": "#272f42",
     }
 
 # ── Typography ────────────────────────────────────────────────────────────────
@@ -57,21 +92,22 @@ def _palette() -> dict:
 _FONT_BODY   = ("Segoe UI Variable", 10)
 _FONT_BODY_B = ("Segoe UI Variable", 10, "bold")
 _FONT_LABEL  = ("Segoe UI Variable", 9)
-_FONT_NUM    = ("Consolas", 18, "bold")
+_FONT_SMALL  = ("Segoe UI Variable", 8)
+_FONT_NUM    = ("Consolas", 22, "bold")
 _FONT_NUM_SM = ("Consolas", 11)
 _FONT_TS     = ("Consolas", 9)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-_WIN_W       = 300
-_SLIDE_PX    = 160
-_SLIDE_MS    = 150
-_SLIDE_STEPS = 12
+_WIN_W       = 320
+_SLIDE_PX    = 140
+_SLIDE_MS    = 180
+_SLIDE_STEPS = 14
 _FADE_MS     = 100
 _FADE_STEPS  = 8
-_BAR_H       = 4
-_BAR_ANIM_MS = 350
-_BAR_STEPS   = 18
+_BAR_H       = 6
+_BAR_ANIM_MS = 400
+_BAR_STEPS   = 20
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -90,7 +126,7 @@ def _rounded_rect(canvas: tk.Canvas, x1: int, y1: int, x2: int, y2: int,
 
 
 def _draw_brand_icon(canvas: tk.Canvas, size: int, color: str) -> None:
-    """Green rounded-square with a simple circle mark."""
+    """Fallback: green rounded-square with a circle mark."""
     r = size // 5
     _rounded_rect(canvas, 0, 0, size, size, r, fill=color, outline="")
     m = size // 5
@@ -129,6 +165,7 @@ class DetailWindow(tk.Toplevel):
         self.overrideredirect(True)
         self.attributes("-topmost", True)
         self.attributes("-alpha", 0.0)
+        self.configure(bg=self._pal["BG"])
 
         self._build(usage, last_updated)
         self.after(0, self._init_win32)
@@ -159,9 +196,14 @@ class DetailWindow(tk.Toplevel):
         row = tk.Frame(parent, bg=p["BG"])
         row.pack(fill="x", padx=14, pady=(13, 11))
 
-        ic = tk.Canvas(row, width=28, height=28, bg=p["BG"], highlightthickness=0)
+        # ChatGPT brand icon
+        self._brand_img = _load_brand_icon(28)
+        if self._brand_img:
+            ic = tk.Label(row, image=self._brand_img, bg=p["BG"])
+        else:
+            ic = tk.Canvas(row, width=28, height=28, bg=p["BG"], highlightthickness=0)
+            _draw_brand_icon(ic, 28, p["ACCENT"])
         ic.pack(side="left")
-        _draw_brand_icon(ic, 28, p["ACCENT"])
 
         txt = tk.Frame(row, bg=p["BG"])
         txt.pack(side="left", padx=(9, 0))
@@ -170,6 +212,7 @@ class DetailWindow(tk.Toplevel):
         tk.Label(txt, text="Organization costs", bg=p["BG"], fg=p["FG_DIM"],
                  font=_FONT_LABEL).pack(anchor="w")
 
+        # Status dot
         dot_color = {
             "ok":         p["GREEN"],
             "stale":      p["ORANGE"],
@@ -187,7 +230,7 @@ class DetailWindow(tk.Toplevel):
         crit = self._settings.month_critical_usd
 
         wrap = tk.Frame(parent, bg=p["BG"])
-        wrap.pack(fill="x", padx=10, pady=10)
+        wrap.pack(fill="x", padx=12, pady=10)
 
         if usage is None:
             msg = {
@@ -198,50 +241,57 @@ class DetailWindow(tk.Toplevel):
                 "no_key":     "No API key — open Settings",
             }.get(self._status, "Fetching data…")
             tk.Label(wrap, text=msg, bg=p["BG"], fg=p["FG_DIM"],
-                     font=_FONT_LABEL, wraplength=260, justify="left",
-                     ).pack(padx=4, pady=6, anchor="w")
+                     font=_FONT_LABEL, wraplength=280, justify="left",
+                     ).pack(padx=4, pady=8, anchor="w")
         else:
-            self._cost_card(wrap, "Today", usage.today_cost, warn, crit)
-            self._cost_card(wrap, "Month", usage.month_cost, warn, crit,
+            self._cost_card(wrap, "Today", "Current day spend",
+                            usage.today_cost, warn, crit)
+            self._cost_card(wrap, "Month", "Billing period total",
+                            usage.month_cost, warn, crit,
                             show_bar=True, bar_max=crit)
             top = [m for m in usage.models if m.month_cost is not None][:4]
             if top:
-                tk.Frame(wrap, bg=p["DIVIDER"], height=1).pack(fill="x", pady=(4, 0))
+                tk.Frame(wrap, bg=p["DIVIDER"], height=1).pack(fill="x", pady=(6, 0))
                 for m in top:
                     self._model_row(wrap, m)
 
         if self._status == "ratelimit":
             banner_bg = p["BANNER_WARN"]
             banner = tk.Frame(wrap, bg=banner_bg)
-            banner.pack(fill="x", pady=(4, 0))
+            banner.pack(fill="x", pady=(6, 0))
             tk.Frame(banner, bg=p["ORANGE"], height=1).pack(fill="x")
-            tk.Label(banner, text="⚠  Rate limited — retrying…",
+            tk.Label(banner, text="Rate limited — retrying shortly",
                      bg=banner_bg, fg=p["ORANGE"],
                      font=_FONT_LABEL, anchor="w",
                      ).pack(fill="x", padx=10, pady=7)
 
-    def _cost_card(self, parent: tk.Widget, label: str, cost: float,
-                   warn: float, crit: float, show_bar: bool = False,
-                   bar_max: float = 1.0) -> None:
+    def _cost_card(self, parent: tk.Widget, title: str, subtitle: str,
+                   cost: float, warn: float, crit: float,
+                   show_bar: bool = False, bar_max: float = 1.0) -> None:
         p   = self._pal
         clr = _cost_color(cost, warn, crit, p)
 
         card = tk.Frame(parent, bg=p["BG_CARD"],
                         highlightthickness=1,
-                        highlightbackground=p["DIVIDER"])
-        card.pack(fill="x", pady=3)
+                        highlightbackground=p["CARD_BORDER"])
+        card.pack(fill="x", pady=4)
 
         top = tk.Frame(card, bg=p["BG_CARD"])
-        top.pack(fill="x", padx=12, pady=(9, 5 if show_bar else 9))
+        top.pack(fill="x", padx=14, pady=(10, 0))
 
-        tk.Label(top, text=label, bg=p["BG_CARD"], fg=p["FG_DIM"],
-                 font=_FONT_LABEL).pack(side="left")
+        lbl_frame = tk.Frame(top, bg=p["BG_CARD"])
+        lbl_frame.pack(side="left", anchor="sw")
+        tk.Label(lbl_frame, text=title, bg=p["BG_CARD"], fg=p["FG"],
+                 font=_FONT_BODY_B).pack(anchor="w")
+        tk.Label(lbl_frame, text=subtitle, bg=p["BG_CARD"], fg=p["FG_MUTED"],
+                 font=_FONT_SMALL).pack(anchor="w")
+
         tk.Label(top, text=f"${cost:.2f}", bg=p["BG_CARD"], fg=clr,
-                 font=_FONT_NUM).pack(side="right")
+                 font=_FONT_NUM).pack(side="right", anchor="ne")
 
         if show_bar and bar_max > 0:
             bar_frame = tk.Frame(card, bg=p["BG_CARD"])
-            bar_frame.pack(fill="x", padx=12, pady=(0, 9))
+            bar_frame.pack(fill="x", padx=14, pady=(6, 0))
             canvas = tk.Canvas(bar_frame, height=_BAR_H, bg=p["BG_CARD"],
                                highlightthickness=0)
             canvas.pack(fill="x")
@@ -251,7 +301,7 @@ class DetailWindow(tk.Toplevel):
                 tw = event.width
                 cv.delete("all")
                 _rounded_rect(cv, 0, 0, tw, _BAR_H, _BAR_H // 2,
-                              fill=p["DIVIDER"], outline="")
+                              fill=p["BAR_BG"], outline="")
                 cv._target_fill = int(tw * ratio)
                 cv._fill_color  = color
                 cv._track_w     = tw
@@ -259,10 +309,13 @@ class DetailWindow(tk.Toplevel):
             canvas.bind("<Configure>", _on_configure)
             self._bar_canvases.append((canvas, fill_ratio))
 
+        # Bottom padding
+        tk.Frame(card, bg=p["BG_CARD"], height=8).pack()
+
     def _model_row(self, parent: tk.Widget, model) -> None:
         p = self._pal
         row = tk.Frame(parent, bg=p["BG"])
-        row.pack(fill="x", pady=1)
+        row.pack(fill="x", pady=2)
         name = model.model
         if len(name) > 22:
             name = name[:20] + "…"
@@ -306,9 +359,9 @@ class DetailWindow(tk.Toplevel):
         ts = last_updated.strftime("%H:%M:%S") if last_updated else "never"
 
         row = tk.Frame(parent, bg=p["BG"])
-        row.pack(fill="x", padx=12, pady=8)
+        row.pack(fill="x", padx=14, pady=9)
 
-        tk.Label(row, text=f"updated {ts}", bg=p["BG"], fg=p["FG_MUTED"],
+        tk.Label(row, text=f"Updated {ts}", bg=p["BG"], fg=p["FG_MUTED"],
                  font=_FONT_TS).pack(side="left")
 
         btn_kw = dict(font=_FONT_LABEL, relief="flat", bd=0,
@@ -318,7 +371,7 @@ class DetailWindow(tk.Toplevel):
                   activebackground=p["BG_HOVER"], activeforeground=p["FG"],
                   **btn_kw).pack(side="right")
         tk.Button(row, text="Refresh", command=self._do_refresh,
-                  bg=p["BG_CARD"], fg=p["ACCENT"],
+                  bg=p["BTN_BG"], fg=p["ACCENT"],
                   activebackground=p["BG_HOVER"], activeforeground=p["ACCENT"],
                   **btn_kw).pack(side="right", padx=(0, 6))
 
@@ -402,7 +455,7 @@ class DetailWindow(tk.Toplevel):
 # ── Settings window ───────────────────────────────────────────────────────────
 
 class SettingsWindow(tk.Toplevel):
-    """Settings flyout — dark-glass design, centered on screen."""
+    """Settings flyout — dark-glass design, centered, draggable."""
 
     def __init__(
         self,
@@ -415,10 +468,13 @@ class SettingsWindow(tk.Toplevel):
         self._on_save  = on_save
         self._closing  = False
         self._pal      = _palette()
+        self._drag_x   = 0
+        self._drag_y   = 0
 
         self.overrideredirect(True)
         self.attributes("-topmost", True)
         self.attributes("-alpha", 0.0)
+        self.configure(bg=self._pal["BG"])
 
         self._build()
         self.after(0, self._init_win32)
@@ -441,18 +497,29 @@ class SettingsWindow(tk.Toplevel):
         outer = tk.Frame(self, bg=p["BG"])
         outer.pack(fill="both", expand=True, padx=1, pady=1)
 
-        # Header
-        hdr = tk.Frame(outer, bg=p["BG"])
+        # Header (draggable)
+        hdr = tk.Frame(outer, bg=p["BG"], cursor="fleur")
         hdr.pack(fill="x", padx=14, pady=(13, 11))
-        ic = tk.Canvas(hdr, width=28, height=28, bg=p["BG"], highlightthickness=0)
+
+        self._brand_img = _load_brand_icon(28)
+        if self._brand_img:
+            ic = tk.Label(hdr, image=self._brand_img, bg=p["BG"])
+        else:
+            ic = tk.Canvas(hdr, width=28, height=28, bg=p["BG"], highlightthickness=0)
+            _draw_brand_icon(ic, 28, p["ACCENT"])
         ic.pack(side="left")
-        _draw_brand_icon(ic, 28, p["ACCENT"])
+
         txt = tk.Frame(hdr, bg=p["BG"])
         txt.pack(side="left", padx=(9, 0))
         tk.Label(txt, text="Settings", bg=p["BG"], fg=p["FG"],
                  font=_FONT_BODY_B).pack(anchor="w")
         tk.Label(txt, text="OpenAI Usage Tray", bg=p["BG"], fg=p["FG_DIM"],
                  font=_FONT_LABEL).pack(anchor="w")
+
+        # Bind drag on header and all its children
+        for widget in [hdr, ic, txt] + list(txt.winfo_children()):
+            widget.bind("<Button-1>", self._drag_start)
+            widget.bind("<B1-Motion>", self._drag_move)
 
         tk.Frame(outer, bg=p["DIVIDER"], height=1).pack(fill="x")
 
@@ -470,7 +537,7 @@ class SettingsWindow(tk.Toplevel):
             key_row, textvariable=self._key_var, show="●",
             bg=p["BG_CARD"], fg=p["FG"], insertbackground=p["FG"],
             relief="flat", width=28, font=_FONT_LABEL,
-            highlightthickness=1, highlightbackground=p["DIVIDER"],
+            highlightthickness=1, highlightbackground=p["CARD_BORDER"],
         )
         self._key_entry.pack(side="left", ipady=5)
 
@@ -497,7 +564,7 @@ class SettingsWindow(tk.Toplevel):
         self._critical_var = tk.IntVar(value=int(self._settings.month_critical_usd))
 
         self._slider_row(body, "Refresh interval", self._interval_var,
-                         60, 3600, "s", p["ACCENT"])
+                         120, 3600, "s", p["ACCENT"])
         self._slider_row(body, "Warning threshold", self._warning_var,
                          1, 500, "$", p["ORANGE"])
         self._slider_row(body, "Critical threshold", self._critical_var,
@@ -542,6 +609,13 @@ class SettingsWindow(tk.Toplevel):
             highlightthickness=0, showvalue=False,
             relief="flat", sliderlength=16, bd=0,
         ).pack(fill="x")
+
+    def _drag_start(self, event) -> None:
+        self._drag_x = event.x_root - self.winfo_x()
+        self._drag_y = event.y_root - self.winfo_y()
+
+    def _drag_move(self, event) -> None:
+        self.geometry(f"+{event.x_root - self._drag_x}+{event.y_root - self._drag_y}")
 
     def _center_and_show(self) -> None:
         self.update_idletasks()

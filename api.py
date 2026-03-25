@@ -115,7 +115,12 @@ def fetch_completions(
         if resp.status_code == 401:
             raise AuthError("HTTP 401 — API key rejected.")
         if resp.status_code == 429:
-            retry_after = int(resp.headers.get("retry-after", 300))
+            raw_retry = resp.headers.get("retry-after", "300")
+            try:
+                retry_after = int(raw_retry)
+            except (ValueError, TypeError):
+                retry_after = 300
+            retry_after = max(60, min(retry_after, 3600))
             raise RateLimitError(f"Rate limited — retry in {retry_after}s.", retry_after)
         resp.raise_for_status()
 
@@ -146,7 +151,7 @@ def fetch_costs(
     month_start: Unix timestamp of UTC midnight on the 1st of the billing month.
     today_utc_start: Unix timestamp of UTC midnight today (UTC).
     """
-    from datetime import date, timezone
+    from datetime import timezone
 
     headers = {"Authorization": f"Bearer {api_key}"}
     today_utc = datetime.fromtimestamp(today_utc_start, tz=timezone.utc).date()
@@ -164,7 +169,12 @@ def fetch_costs(
     if resp.status_code == 401:
         raise AuthError("HTTP 401 — API key rejected.")
     if resp.status_code == 429:
-        retry_after = int(resp.headers.get("retry-after", 300))
+        raw_retry = resp.headers.get("retry-after", "300")
+        try:
+            retry_after = int(raw_retry)
+        except (ValueError, TypeError):
+            retry_after = 300
+        retry_after = max(60, min(retry_after, 3600))
         raise RateLimitError(f"Rate limited — retry in {retry_after}s.", retry_after)
     resp.raise_for_status()
 
@@ -186,8 +196,8 @@ def fetch_costs(
 def fetch_usage(api_key: str) -> UsageData:
     """Fire all three API calls concurrently and return merged UsageData."""
     import concurrent.futures
-    from datetime import date, timezone
     import time
+    from datetime import date, timezone
 
     now = datetime.now()
     local_midnight = datetime(now.year, now.month, now.day)

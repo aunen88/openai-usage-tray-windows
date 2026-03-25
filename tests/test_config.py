@@ -1,10 +1,6 @@
 import importlib
 import json
-import os
-from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 
 def test_default_settings():

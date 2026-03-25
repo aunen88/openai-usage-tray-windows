@@ -1,7 +1,6 @@
 """Pure functions that build menu item strings from UsageData."""
 from __future__ import annotations
 
-from typing import Optional
 from api import ModelUsage, UsageData
 
 

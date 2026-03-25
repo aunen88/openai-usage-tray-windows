@@ -23,11 +23,16 @@ _FONT_CANDIDATES = [
     "C:/Windows/Fonts/arialbd.ttf",    # Arial Bold (last resort)
 ]
 
-# Background colours (RGBA) — dark base with cost-level tint
-_BG_NORMAL = (26, 26, 26, 235)   # neutral dark
+# Background colours (RGBA) — deep slate base with cost-level tint
+_BG_NORMAL = (15, 23, 42, 240)   # #0f172a - deep slate
 _BG_WARN   = (60, 38, 0, 235)    # amber tint
-_BG_CRIT   = (60, 0, 0, 235)     # red tint
-_TEXT_COLOR = "#DDDDDD"
+_BG_CRIT   = (80, 10, 10, 240)   # dark-red tint
+_BG_GREY   = (30, 41, 59, 230)   # #1e293b - muted error background
+_TEXT_COLOR = "#cbd5e1"
+_GREEN     = "#4ade80"
+_ORANGE    = "#f59e0b"
+_RED       = "#f87171"
+_WHITE     = "#cbd5e1"
 
 
 def _load_font(size: int) -> ImageFont.FreeTypeFont:

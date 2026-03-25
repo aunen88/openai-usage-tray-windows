@@ -1,10 +1,10 @@
-import pytest
 from datetime import datetime
+
 
 def _make_data(today_cost=4.20, month_cost=31.50,
                today_in=2_100_000, today_out=800_000,
                month_in=18_000_000, month_out=6_000_000):
-    from api import UsageData, ModelUsage
+    from api import ModelUsage, UsageData
     models = [
         ModelUsage("gpt-4o", 1_800_000, 600_000, 15_000_000, 5_000_000,
                    today_cost=3.10, month_cost=27.50),
@@ -61,8 +61,8 @@ def test_summary_lines():
     assert "$31.50" in month_line
 
 def test_model_line_known_cost():
-    from menu_builder import build_model_line
     from api import ModelUsage
+    from menu_builder import build_model_line
     m = ModelUsage("gpt-4o", 1_800_000, 600_000, 15_000_000, 5_000_000,
                    today_cost=3.10, month_cost=27.50)
     line = build_model_line(m)
@@ -70,8 +70,8 @@ def test_model_line_known_cost():
     assert "$27.50" in line
 
 def test_model_line_unknown_cost():
-    from menu_builder import build_model_line
     from api import ModelUsage
+    from menu_builder import build_model_line
     m = ModelUsage("o3-mini", 12_000, 4_000, 100_000, 40_000,
                    today_cost=None, month_cost=None)
     line = build_model_line(m)

@@ -25,7 +25,10 @@ from api import AuthError, RateLimitError, UsageData, fetch_usage
 from config import Settings, load_settings
 from icon_renderer import render_icon
 from menu_builder import (
-    build_last_updated, build_model_line, build_summary_lines, build_title,
+    build_last_updated,
+    build_model_line,
+    build_summary_lines,
+    build_title,
 )
 from popup import DetailWindow, SettingsWindow
 
@@ -154,8 +157,20 @@ class App:
             log.warning("Rate limited — backing off %ds", self._backoff_s)
             self._post(self._apply_state, "ratelimit", None)
         except Exception as exc:
-            log.error("Fetch failed: %s", exc)
-            self._post(self._apply_state, "stale" if self.usage else "error", None)
+            is_429 = "429" in str(exc) or (
+                hasattr(exc, "response")
+                and getattr(exc.response, "status_code", None) == 429
+            )
+            if is_429:
+                self._backoff_s = min(self._backoff_s * 2, 3600)
+                log.warning("Rate limited (fallback) – backing off %ds", self._backoff_s)
+                self._post(self._apply_state, "ratelimit", None)
+            else:
+                log.error("Fetch failed: %s", exc)
+                self._post(self._apply_state, "stale" if self.usage else "error", None)
+                # Back off on repeated errors to avoid hammering a failing API
+                self._backoff_s = min(self._backoff_s * 2, 900)
+                self._post(self._schedule_backoff)
 
     # ── State application (main thread) ──────────────────────────────────────
 

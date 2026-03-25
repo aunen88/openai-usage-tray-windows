@@ -9,7 +9,9 @@ python -m PyInstaller ^
     --onefile ^
     --windowed ^
     --name OpenAIUsageTray ^
+    --icon chatgpt_icon.ico ^
     --manifest dpi_aware.manifest ^
+    --add-data "chatgpt_icon.png;." ^
     main.py
 
 echo.

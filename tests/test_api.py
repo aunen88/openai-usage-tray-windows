@@ -1,6 +1,6 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # Task 3: Dataclasses and Pricing Table
@@ -15,7 +15,7 @@ def test_model_usage_defaults():
     assert m.input_tokens == 1_000_000
 
 def test_known_model_cost():
-    from api import compute_model_cost, PRICING
+    from api import PRICING, compute_model_cost
     assert "gpt-4o" in PRICING
     cost = compute_model_cost("gpt-4o", input_tokens=1_000_000, output_tokens=500_000)
     # gpt-4o: $2.50/M in, $10.00/M out → $2.50 + $5.00 = $7.50
@@ -76,13 +76,13 @@ def test_fetch_completions_pagination():
     assert result["gpt-4o"] == (300, 150)
 
 def test_fetch_completions_401_raises_auth_error():
-    from api import fetch_completions, AuthError
+    from api import AuthError, fetch_completions
     with patch("api.requests.get", return_value=_mock_response({}, status=401)):
         with pytest.raises(AuthError):
             fetch_completions("bad-key", start_time=0, end_time=1)
 
 def test_fetch_completions_429_raises_rate_limit():
-    from api import fetch_completions, RateLimitError
+    from api import RateLimitError, fetch_completions
     r = _mock_response({}, status=429, headers={"retry-after": "60"})
     with patch("api.requests.get", return_value=r):
         with pytest.raises(RateLimitError) as exc_info:
@@ -122,7 +122,7 @@ def test_fetch_costs_today_bucket_absent_returns_zero():
     assert today_cost == 0.0
 
 def test_fetch_costs_401_raises_auth_error():
-    from api import fetch_costs, AuthError
+    from api import AuthError, fetch_costs
     with patch("api.requests.get", return_value=_mock_response({}, status=401)):
         with pytest.raises(AuthError):
             fetch_costs("bad-key", month_start=0, today_utc_start=0)
@@ -133,7 +133,7 @@ def test_fetch_costs_401_raises_auth_error():
 # ---------------------------------------------------------------------------
 
 def test_fetch_usage_merges_into_usage_data():
-    from api import fetch_usage, UsageData
+    from api import UsageData, fetch_usage
 
     completions_today = {"gpt-4o": (1_000_000, 500_000)}
     completions_month = {"gpt-4o": (5_000_000, 2_000_000)}
